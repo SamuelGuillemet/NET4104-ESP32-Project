@@ -37,7 +37,7 @@ mpremote connect /dev/ttyUSB0 mip install aioble
 mpremote connect /dev/ttyUSB0 run ./src/test/test.py
 ```
 
-# Install hashlib micropython-lib [hashlib]
+## Install hashlib micropython-lib [hashlib](https://docs.micropython.org/en/latest/library/hashlib.html)
 
 ```bash
 mpremote connect /dev/ttyUSB0 mip install hashlib
