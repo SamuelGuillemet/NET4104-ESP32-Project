@@ -28,11 +28,17 @@ pip install mpremote
 ## Install aioble micropython-lib [aioble](https://github.com/micropython/micropython-lib/tree/master/micropython/bluetooth/aioble)
 
 ```bash
-mpremote connect /dev/ttyUSB0 mpy install aioble
+mpremote connect /dev/ttyUSB0 mip install aioble
 ```
 
 ## Test the installation
 
 ```bash
 mpremote connect /dev/ttyUSB0 run ./src/test/test.py
+```
+
+# Install hashlib micropython-lib [hashlib]
+
+```bash
+mpremote connect /dev/ttyUSB0 mip install hashlib
 ```
