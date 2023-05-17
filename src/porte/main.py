@@ -9,9 +9,20 @@ import sys
 
 sys.path.append("")
 
-_ENV_CHALL_UUID = bluetooth.UUID(0x181A)
+UUID = bluetooth.UUID(0x181A)
+_ENV_CHALL_DOOR_UUID = bluetooth.UUID(0x2A6E)
+_ENV_CHALL_KEY_UUID = bluetooth.UUID(0x1234)
 
 server = aioble.device.Device(0, "7c:df:a1:e8:8c:aa")
+
+key = 1234
+
+# Register GATT server.
+door_service = aioble.Service(UUID)
+door_characteristic = aioble.Characteristic(
+    door_service, _ENV_CHALL_DOOR_UUID, read=True, notify=True
+)
+aioble.register_services(door_service)
 
 
 async def challenge(device):
@@ -23,12 +34,28 @@ async def challenge(device):
         print("Timeout during connection")
         return False
 
-    async with connection:
-        # read challenge values from server
-        return
-    # Compare values and return True if correct
+    # generate a nonce
+    nonce1 = random.randint(0, 10000000)
+    print("nonce1: {}".format(nonce1))
+    # write nonce to server
+    await door_characteristic.write(struct.pack("<h", nonce1))
 
-    return True
+    async with connection:
+        # wait for response
+        await asyncio.sleep(1)
+        # read response from key at _ENV_CHALL_KEY_UUID
+        res = await connection.read(_ENV_CHALL_KEY_UUID)
+        # check if response is correct
+        hash = res[0:12]
+        nonce2 = res[12:14]
+        print("hash: {}".format(hash))
+        print("nonce2: {}".format(nonce2))
+        if (hash(nonce1 + key + nonce2) == hash):
+            print(" --- Challenge successful --- ")
+            return True
+        else:
+            print(" --- Challenge failed --- ")
+            return False
 
 
 async def scan_device():
@@ -43,16 +70,12 @@ async def scan_device():
                 if result.rssi > -11:
                     print("Device in place")
                     print("initiating challenge")
-                    res = challenge(result.device)
+                    res = await challenge(result.device)
                     if res:
-                        print("challenge successful")
                         print("Door Unlocked")
                         await asyncio.sleep(10)
                         print("Door Locked")
-                        return None
-                    else:
-                        print("challenge failed")
-                        return None
+                    return None
         if not rechable:
             print("Too Far")
             return None
