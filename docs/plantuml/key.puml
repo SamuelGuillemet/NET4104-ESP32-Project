@@ -1,0 +1,68 @@
+@startuml key
+
+skinparam Linetype polyline
+
+[*] -> Initialisation
+
+state Initialisation {
+    state "Register Key Service" as RegisterGATTService {
+        RegisterGATTService: UUID(0x181B)
+    }
+    state "Register Key Characteristic for hash" as RegisterGATTCharacteristicHash {
+        RegisterGATTCharacteristicHash: UUID(0x1234)
+    }
+    state "Register Key Characteristic for nonce" as RegisterGATTCharacteristicNonce {
+        RegisterGATTCharacteristicNonce: UUID(0x5678)
+    }
+
+    state fork_state <<fork>>
+    [*] -> RegisterGATTService
+    RegisterGATTService --> fork_state : Service Created
+
+    fork_state --> RegisterGATTCharacteristicHash
+    fork_state --> RegisterGATTCharacteristicNonce
+
+    state join_state <<join>>
+    RegisterGATTCharacteristicNonce --> join_state : Characteristic Registered
+    RegisterGATTCharacteristicHash --> join_state : Characteristic Registered
+
+    join_state --> Key : Ready
+}
+
+state Key {
+
+
+[*] -> Advertising
+Advertising -> Challenge : Door Found
+Challenge -> Advertising : Door Lost
+
+state Challenge {
+
+state ReadDoorCharacteristic {
+    ReadDoorCharacteristic : Reading Characteristic
+    ReadDoorCharacteristic : Got Nonce from Door Characteristic
+    ReadDoorCharacteristic --> GenerateNonce : Nonce Read
+}
+
+state GenerateNonce {
+    GenerateNonce : Generating Nonce
+    GenerateNonce --> WriteKeyCharacteristicHash : Nonce Generated
+}
+
+state WriteKeyCharacteristicHash {
+    WriteKeyCharacteristicHash : Writing to Key Characteristic Hash
+    WriteKeyCharacteristicHash --> WriteKeyCharacteristicNonce : Hash Written
+}
+
+state WriteKeyCharacteristicNonce {
+    WriteKeyCharacteristicNonce : Writing to Key Characteristic Nonce
+    WriteKeyCharacteristicNonce --> NotifyDoorCharacteristic : Nonce Written
+}
+
+state NotifyDoorCharacteristic {
+    NotifyDoorCharacteristic : Notifying Characteristic
+}
+}
+}
+
+@enduml

@@ -1,0 +1,26 @@
+Porte:
+1- Find :
+	- scan
+	- verif name and service
+	- verif rssi
+	-> return device
+
+2- Advertise :
+	- characteristics de la porte
+	- await for a connection to begin
+
+3- Send nounce :
+	- generate nounce random
+	- send nounce with door characteristics
+
+4- Wait for 1 sec ?? Attendre que le nounce soir reçu
+
+5- Connect to key :
+	- service de la clé
+	- characteristics de la clé
+
+6- Decode what the key send
+	- decode aes
+	- open door
+
+REDOO

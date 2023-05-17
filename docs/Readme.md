@@ -1,5 +1,11 @@
 # Installation
 
+## Specific to USB part
+
+```bash
+sudo chmod a+rw /dev/ttyUSB0
+```
+
 ## Prerequisites
 
 - Download and install the latest version of [Python 3.10](https://www.python.org/downloads/)
