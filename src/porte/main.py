@@ -1,125 +1,134 @@
-import struct
-import random
-import bluetooth
-import aioble
-import uasyncio as asyncio
-from micropython import const
-import hashlib
-from machine import Pin, PWM
-import time
-
 import sys
 
 sys.path.append("")
+
+import uasyncio as asyncio
+import aioble
+import bluetooth
+import hashlib
+
+from machine import Pin, PWM
+
+import time
+import random
+import struct
+
+
+#######################################################################
+#                               WHITELIST                             #
+#######################################################################
+# Whitelist of authorized keys
+whitelist = [
+    "7c:df:a1:e8:8c:aa",
+]
+
+#######################################################################
+#                               PASSWORD                              #
+#######################################################################
+# Key value
+password = 1234
+
+#######################################################################
+#                               DOOR                                  #
+#######################################################################
 
 # init servo
 sg90 = PWM(Pin(37, mode=Pin.OUT))
 sg90.freq(50)
 
+# init UUID
+UUID_DOOR = bluetooth.UUID(0x181A)
+UUID_KEY = bluetooth.UUID(0x181B)
 
-UUID = bluetooth.UUID(0x181A)
-_ENV_CHALL_DOOR_UUID = bluetooth.UUID(0x2A6E)
-KEY_UUID = bluetooth.UUID(0x181B)
-_ENV_CHALL_KEY_UUID = bluetooth.UUID(0x1234)
-
-# Create key device object to compare mac adress
-key_device = aioble.device.Device(0, "7c:df:a1:e8:8c:aa")
-
-key = "1234"
+CHAR_DOOR_UUID = bluetooth.UUID(0x2A6E)
+CHAR_KEY_HASH_UUID = bluetooth.UUID(0x1234)
+CHAR_KEY_NOUCE_UUID = bluetooth.UUID(0x5678)
 
 # Register GATT server.
-door_service = aioble.Service(UUID)
+door_service = aioble.Service(UUID_DOOR)
 door_characteristic = aioble.Characteristic(
-    door_service, _ENV_CHALL_DOOR_UUID, read=True, notify=True
+    door_service, CHAR_DOOR_UUID, read=True, notify=True, write=True, capture=True
 )
 aioble.register_services(door_service)
 
 
+# The chalenge to verify the key
 async def challenge(device):
     print(" --- Starting challenge --- ")
 
     # connect to the key
     try:
-        print("Connecting to", device)
         connection = await device.connect()
     except asyncio.TimeoutError:
         print("Timeout during connection")
         return False
 
-    # generate nonce1
-    nonce1 = random.randint(0, 10000000)
-    print("nonce1: {}".format(nonce1))
-    # write nonce1 to server
-    data = struct.pack("<l", nonce1)
+    # generate door_nonce
+    door_nonce = random.randint(0, 10000000)
+    print(" --- Generated door nonce : ", door_nonce, "--- ")
+    # write door_nonce to client
+    data = struct.pack("<l", door_nonce)
     door_characteristic.write(data)
-    # waiting the key to catch the nonce1
-    await asyncio.sleep(2)
 
     async with connection:
-        # wait for response
-        # await asyncio.sleep(1)
-        # read response from key at _ENV_CHALL_KEY_UUID
-        key_service = await connection.service(KEY_UUID)
-        key_chara = await key_service.characteristic(_ENV_CHALL_KEY_UUID)
-        res = await key_chara.read()
-        # check if response is correct
-        #hash = struct.unpack("<l", res)[0]
-        hash = res
-        print("hash: {}".format(hash))
+        key_service = await connection.service(UUID_KEY)
+        key_chara_hash = await key_service.characteristic(CHAR_KEY_HASH_UUID)
+        key_chara_nonce = await key_service.characteristic(CHAR_KEY_NOUCE_UUID)
+        
+        print(" --- Waiting for response --- ")
+        await door_characteristic.written()
+        
+        key_hash = await key_chara_hash.read()
+        print(" --- Got hash response : ", key_hash, "--- ")
 
-        asyncio.sleep(2)
+        read = await key_chara_nonce.read()
+        client_nonce = struct.unpack("<l", read)[0]
+        print(" --- Got client nonce : ", client_nonce, "--- ")
 
-        res = await key_chara.read()
-        nonce2 = struct.unpack("<l", res)[0]
-        print("nonce2: {}".format(nonce2))
-
-        my_hash = hashlib.sha1(str(nonce1) + key + str(nonce2)).digest()
-        print("my_hash: {}".format(my_hash))
-        if (my_hash == hash):
+        my_hash = hashlib.sha1(str(door_nonce) + str(password) + str(client_nonce)).digest()
+        print(" --- Generated hash : ", my_hash, "--- ")
+        if (my_hash == key_hash):
             print(" --- Challenge successful --- ")
             return True
         else:
             print(" --- Challenge failed --- ")
             return False
 
+# Generate the list of devices to scan
+def generate_key_devices_addr():
+    key_devices = []
+    for mac in whitelist:
+        key_devices.append(aioble.device.Device(0, mac).addr)
+        
+    return key_devices
+
+key_devices_addr = generate_key_devices_addr()
+
 
 async def scan_device():
-    # print("scaning...")
     async with aioble.scan(1000, interval_us=30000, window_us=30000, active=True) as scanner:
-        rechable = False
+        reacheable = False
         async for result in scanner:
-            target = b'7c:df:a1:e8:8c:aa'
-            if result.device.addr == key_device.addr:
-                print("rssi: {}".format(result.rssi))
-                rechable = True
+            if result.device.addr in key_devices_addr:
+                reacheable = True
+                print("Rssi of {} : {}".format(result.device.addr_hex(), result.rssi))
                 if result.rssi > -10:
-                    print("Device in place")
-                    print("initiating challenge")
+                    print(" --- Device " + result.device.addr_hex() + " is in range --- ")
                     res = await challenge(result.device)
 
                     if res:
-                        print("Door Unlocked")
+                        print(" --- Door Unlocked --- ")
                         # open the door (moove the servo)
                         sg90.duty(26)
                         time.sleep(10)
                         # close the door (moove the servo)
                         sg90.duty(123)
                         time.sleep(1)
-                        await asyncio.sleep(10)
-                        print("Door Locked")
+                        asyncio.sleep(2)
+                        print(" --- Door Locked --- ")
                     return None
-        if not rechable:
+        if not reacheable:
             print("Waiting for device to be reachable...")
-            # exemple hash
-            # hash = hashlib.sha1("password")
-            # print(hash.digest())
-            # exemple open door
-            # sg90.duty(26)
-            # time.sleep(100)
-            # sg90.duty(123)
-            # time.sleep(1)
-            return None
-
     return None
 
 while True:
