@@ -1,8 +1,11 @@
 @startuml key
 
 skinparam Linetype polyline
+hide empty description
 
 [*] -> Initialisation
+
+state Key
 
 state Initialisation {
     state "Register Key Service" as RegisterGATTService {
@@ -31,38 +34,42 @@ state Initialisation {
 
 state Key {
 
+    [*] -> Advertising
+    Advertising -> Challenge : Door Found
+    Challenge -> Advertising : Door Lost
 
-[*] -> Advertising
-Advertising -> Challenge : Door Found
-Challenge -> Advertising : Door Lost
+    state Challenge {
+    state ReadDoorCharacteristic
+    state GenerateNonce
+    state WriteKeyCharacteristicNonce
+    state WriteKeyCharacteristicHash
+    state NotifyDoorCharacteristic
 
-state Challenge {
+        state ReadDoorCharacteristic {
+            ReadDoorCharacteristic : Reading Characteristic
+            ReadDoorCharacteristic : Got Nonce from Door Characteristic
+            ReadDoorCharacteristic --> GenerateNonce : Nonce Read
+        }
 
-state ReadDoorCharacteristic {
-    ReadDoorCharacteristic : Reading Characteristic
-    ReadDoorCharacteristic : Got Nonce from Door Characteristic
-    ReadDoorCharacteristic --> GenerateNonce : Nonce Read
-}
+        state GenerateNonce {
+            GenerateNonce : Generating Nonce
+            GenerateNonce --> WriteKeyCharacteristicHash : Nonce Generated
+        }
 
-state GenerateNonce {
-    GenerateNonce : Generating Nonce
-    GenerateNonce --> WriteKeyCharacteristicHash : Nonce Generated
-}
+        state WriteKeyCharacteristicHash {
+            WriteKeyCharacteristicHash : Writing to Key Characteristic Hash
+            WriteKeyCharacteristicHash --> WriteKeyCharacteristicNonce : Hash Written
+        }
 
-state WriteKeyCharacteristicHash {
-    WriteKeyCharacteristicHash : Writing to Key Characteristic Hash
-    WriteKeyCharacteristicHash --> WriteKeyCharacteristicNonce : Hash Written
-}
+        state WriteKeyCharacteristicNonce {
+            WriteKeyCharacteristicNonce : Writing to Key Characteristic Nonce
+            WriteKeyCharacteristicNonce --> NotifyDoorCharacteristic : Nonce Written
+        }
 
-state WriteKeyCharacteristicNonce {
-    WriteKeyCharacteristicNonce : Writing to Key Characteristic Nonce
-    WriteKeyCharacteristicNonce --> NotifyDoorCharacteristic : Nonce Written
-}
-
-state NotifyDoorCharacteristic {
-    NotifyDoorCharacteristic : Notifying Characteristic
-}
-}
+        state NotifyDoorCharacteristic {
+            NotifyDoorCharacteristic : Notifying Characteristic
+        }
+    }
 }
 
 @enduml
