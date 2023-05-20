@@ -4,6 +4,10 @@
 
 > TODO
 
+## Séquence de fonctionnement
+
+![Sequence Diagram](imgs/door.png)
+
 # Exemple de log de la porte
 
 ```
