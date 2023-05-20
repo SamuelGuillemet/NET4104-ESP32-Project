@@ -1,17 +1,14 @@
+import struct
+import random
+import time
+from machine import Pin, PWM
+import hashlib
+import bluetooth
+import aioble
+import uasyncio as asyncio
 import sys
 
 sys.path.append("")
-
-import uasyncio as asyncio
-import aioble
-import bluetooth
-import hashlib
-
-from machine import Pin, PWM
-
-import time
-import random
-import struct
 
 
 #######################################################################
@@ -35,6 +32,8 @@ password = 1234
 # init servo
 sg90 = PWM(Pin(37, mode=Pin.OUT))
 sg90.freq(50)
+sg90.duty(123)
+
 
 # init UUID
 UUID_DOOR = bluetooth.UUID(0x181A)
@@ -74,10 +73,10 @@ async def challenge(device):
         key_service = await connection.service(UUID_KEY)
         key_chara_hash = await key_service.characteristic(CHAR_KEY_HASH_UUID)
         key_chara_nonce = await key_service.characteristic(CHAR_KEY_NOUCE_UUID)
-        
+
         print(" --- Waiting for response --- ")
         await door_characteristic.written()
-        
+
         key_hash = await key_chara_hash.read()
         print(" --- Got hash response : ", key_hash, "--- ")
 
@@ -85,7 +84,8 @@ async def challenge(device):
         client_nonce = struct.unpack("<l", read)[0]
         print(" --- Got client nonce : ", client_nonce, "--- ")
 
-        my_hash = hashlib.sha1(str(door_nonce) + str(password) + str(client_nonce)).digest()
+        my_hash = hashlib.sha1(
+            str(door_nonce) + str(password) + str(client_nonce)).digest()
         print(" --- Generated hash : ", my_hash, "--- ")
         if (my_hash == key_hash):
             print(" --- Challenge successful --- ")
@@ -95,12 +95,15 @@ async def challenge(device):
             return False
 
 # Generate the list of devices to scan
+
+
 def generate_key_devices_addr():
     key_devices = []
     for mac in whitelist:
         key_devices.append(aioble.device.Device(0, mac).addr)
-        
+
     return key_devices
+
 
 key_devices_addr = generate_key_devices_addr()
 
@@ -111,9 +114,11 @@ async def scan_device():
         async for result in scanner:
             if result.device.addr in key_devices_addr:
                 reacheable = True
-                print("Rssi of {} : {}".format(result.device.addr_hex(), result.rssi))
+                print("Rssi of {} : {}".format(
+                    result.device.addr_hex(), result.rssi))
                 if result.rssi > -10:
-                    print(" --- Device " + result.device.addr_hex() + " is in range --- ")
+                    print(" --- Device " + result.device.addr_hex() +
+                          " is in range --- ")
                     res = await challenge(result.device)
 
                     if res:
