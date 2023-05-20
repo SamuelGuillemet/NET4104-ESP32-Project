@@ -23,7 +23,7 @@ whitelist = [
 #                               PASSWORD                              #
 #######################################################################
 # Key value
-password = 1234
+password = "^z2S3V&17jh0"
 
 #######################################################################
 #                               DOOR                                  #
@@ -85,7 +85,7 @@ async def challenge(device):
         print(" --- Got client nonce : ", client_nonce, "--- ")
 
         my_hash = hashlib.sha1(
-            str(door_nonce) + str(password) + str(client_nonce)).digest()
+            str(door_nonce) + password + str(client_nonce)).digest()
         print(" --- Generated hash : ", my_hash, "--- ")
         if (my_hash == key_hash):
             print(" --- Challenge successful --- ")
